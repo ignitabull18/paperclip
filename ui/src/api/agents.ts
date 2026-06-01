@@ -83,6 +83,11 @@ export interface HermesOrgAgentSummary {
   cadence: string | null;
   skills: string[];
   review: string[];
+  missionControlQueue: string;
+  ownershipScope: string;
+  responsibilities: string[];
+  activationPod: string | null;
+  escalation: string[];
   lastHeartbeatAt: Date | string | null;
   recentRuns: HermesOrgRunSummary[];
 }

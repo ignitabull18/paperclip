@@ -7,6 +7,11 @@ type HermesMetadata = {
   skills?: unknown;
   review?: unknown;
   bridgeUrl?: unknown;
+  missionControlQueue?: unknown;
+  ownershipScope?: unknown;
+  responsibilities?: unknown;
+  activationPod?: unknown;
+  escalation?: unknown;
 };
 
 export type HermesOrgAgentRow = {
@@ -44,6 +49,11 @@ export type HermesOrgVisibleAgent = {
   cadence: string | null;
   skills: string[];
   review: string[];
+  missionControlQueue: string;
+  ownershipScope: string;
+  responsibilities: string[];
+  activationPod: string | null;
+  escalation: string[];
   lastHeartbeatAt: Date | string | null;
   recentRuns: Array<{
     id: string;
@@ -92,6 +102,30 @@ function asStringArray(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 }
 
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "unassigned";
+}
+
+function defaultQueueForDivision(division: string): string {
+  return `mc/${slugify(division)}`;
+}
+
+function defaultOwnershipScope(title: string | null, division: string): string {
+  return title ? `${title} owns ${division} intake, triage, execution quality, and review evidence.` : `Owns ${division} intake, triage, execution quality, and review evidence.`;
+}
+
+function defaultResponsibilities(charter: string | null): string[] {
+  return [
+    charter ?? "Maintain the division backlog and execution quality.",
+    "Triage Mission Control work into the correct owner queue.",
+    "Review delegated worker output before escalation.",
+    "Surface blockers, evidence, and approval needs to the COO / Mission Control Lead.",
+  ];
+}
+
 function isActiveAgent(status: string): boolean {
   return status === "active" || status === "running" || status === "idle";
 }
@@ -116,6 +150,10 @@ export function buildHermesOrgVisibility(input: {
     .map((agent) => {
       const metadata = agent.metadata ?? {};
       const profile = asString(metadata.profile) ?? agent.name;
+      const division = asString(metadata.division) ?? "Unassigned";
+      const charter = asString(metadata.charter);
+      const responsibilities = asStringArray(metadata.responsibilities);
+      const escalation = asStringArray(metadata.escalation);
       const recentRuns = (runsByAgent.get(agent.id) ?? []).slice(0, 5).map((run) => ({
         id: run.id,
         status: run.status,
@@ -132,14 +170,19 @@ export function buildHermesOrgVisibility(input: {
         name: agent.name,
         title: agent.title,
         profile,
-        division: asString(metadata.division) ?? "Unassigned",
+        division,
         status: agent.status,
         adapterType: agent.adapterType,
         bridgeConnected: agent.adapterType === "http" && Boolean(asString(metadata.bridgeUrl)),
-        charter: asString(metadata.charter),
+        charter,
         cadence: asString(metadata.cadence),
         skills: asStringArray(metadata.skills),
         review: asStringArray(metadata.review),
+        missionControlQueue: asString(metadata.missionControlQueue) ?? defaultQueueForDivision(division),
+        ownershipScope: asString(metadata.ownershipScope) ?? defaultOwnershipScope(agent.title, division),
+        responsibilities: responsibilities.length > 0 ? responsibilities : defaultResponsibilities(charter),
+        activationPod: asString(metadata.activationPod),
+        escalation: escalation.length > 0 ? escalation : ["AI worker", "AI reviewer", "COO / Mission Control Lead", "Jeremy"],
         lastHeartbeatAt: agent.lastHeartbeatAt,
         recentRuns,
       };

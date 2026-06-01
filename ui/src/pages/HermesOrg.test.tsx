@@ -61,6 +61,11 @@ describe("HermesOrg", () => {
           cadence: "daily",
           skills: ["kanban-orchestrator"],
           review: ["Audit Lead"],
+          missionControlQueue: "mc/executive-coordination",
+          ownershipScope: "Owns operating cadence.",
+          responsibilities: ["Triage Mission Control work"],
+          activationPod: "first-activation",
+          escalation: ["AI worker", "AI reviewer", "COO / Mission Control Lead", "Jeremy"],
           lastHeartbeatAt: null,
           recentRuns: [],
         },
@@ -85,6 +90,11 @@ describe("HermesOrg", () => {
               cadence: "daily",
               skills: ["kanban-orchestrator"],
               review: ["Audit Lead"],
+              missionControlQueue: "mc/executive-coordination",
+              ownershipScope: "Owns operating cadence.",
+              responsibilities: ["Triage Mission Control work"],
+              activationPod: "first-activation",
+              escalation: ["AI worker", "AI reviewer", "COO / Mission Control Lead", "Jeremy"],
               lastHeartbeatAt: null,
               recentRuns: [{
                 id: "run-1",
@@ -134,6 +144,10 @@ describe("HermesOrg", () => {
     expect(container.textContent).toContain("First activation pod");
     expect(container.textContent).toContain("leadcoo");
     expect(container.textContent).toContain("Review: Audit Lead");
+    expect(container.textContent).toContain("Queue: mc/executive-coordination");
+    expect(container.textContent).toContain("Responsibilities:");
+    expect(container.textContent).toContain("Escalation: AI worker → AI reviewer → COO / Mission Control Lead → Jeremy");
+    expect(container.textContent).toContain("Wake lead");
     expect(container.textContent).toContain("Executive / Coordination");
     expect(container.textContent).toContain("1 running");
   });

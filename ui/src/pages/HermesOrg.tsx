@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Bot, GitBranch, ShieldCheck, Activity } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Bot, GitBranch, ShieldCheck, Activity, PlayCircle } from "lucide-react";
 import { agentsApi, type HermesOrgAgentSummary } from "../api/agents";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -22,10 +22,20 @@ function MetricCard({ label, value, icon: Icon }: { label: string; value: string
   );
 }
 
-function AgentCard({ agent }: { agent: HermesOrgAgentSummary }) {
+function AgentCard({
+  agent,
+  companyId,
+  onWake,
+  waking,
+}: {
+  agent: HermesOrgAgentSummary;
+  companyId: string;
+  onWake: (agent: HermesOrgAgentSummary) => void;
+  waking: boolean;
+}) {
   const latestRun = agent.recentRuns[0] ?? null;
   return (
-    <div className="border border-border bg-background p-3 space-y-2">
+    <div className="border border-border bg-background p-3 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="font-medium text-sm truncate">{agent.name}</div>
@@ -34,9 +44,22 @@ function AgentCard({ agent }: { agent: HermesOrgAgentSummary }) {
         <StatusBadge status={agent.status} />
       </div>
       {agent.charter ? <p className="text-xs text-muted-foreground leading-relaxed">{agent.charter}</p> : null}
+      <div className="grid gap-2 text-xs text-muted-foreground">
+        <div><span className="font-medium text-foreground">Queue:</span> {agent.missionControlQueue}</div>
+        <div><span className="font-medium text-foreground">Owns:</span> {agent.ownershipScope}</div>
+        {agent.responsibilities.length > 0 ? (
+          <div>
+            <span className="font-medium text-foreground">Responsibilities:</span>
+            <ul className="mt-1 list-disc space-y-0.5 pl-4">
+              {agent.responsibilities.slice(0, 3).map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          </div>
+        ) : null}
+      </div>
       <div className="flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
         <span className="border border-border px-1.5 py-0.5">{agent.cadence ?? "cadence unset"}</span>
         <span className="border border-border px-1.5 py-0.5">{agent.bridgeConnected ? "bridge connected" : "bridge not connected"}</span>
+        {agent.activationPod ? <span className="border border-border px-1.5 py-0.5">pod: {agent.activationPod}</span> : null}
         {latestRun ? (
           <span className="border border-border px-1.5 py-0.5">
             last run: {latestRun.status} · {relativeTime(latestRun.createdAt)}
@@ -46,8 +69,28 @@ function AgentCard({ agent }: { agent: HermesOrgAgentSummary }) {
         )}
       </div>
       {agent.review.length > 0 ? (
-        <div className="text-xs text-muted-foreground">Review: {agent.review.join(", ")}</div>
+        <div className="text-xs text-muted-foreground">Review: {agent.review.join(" → ")}</div>
       ) : null}
+      {agent.escalation.length > 0 ? (
+        <div className="text-xs text-muted-foreground">Escalation: {agent.escalation.join(" → ")}</div>
+      ) : null}
+      <div className="flex flex-wrap gap-2 pt-1">
+        <a className="border border-border px-2 py-1 text-xs hover:bg-muted" href={`/agents/${agent.id}`}>
+          Open agent
+        </a>
+        <a className="border border-border px-2 py-1 text-xs hover:bg-muted" href={`/agents/${agent.id}/runs`}>
+          Runs
+        </a>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 border border-border px-2 py-1 text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={() => onWake(agent)}
+          disabled={waking || !companyId}
+        >
+          <PlayCircle className="h-3 w-3" />
+          {waking ? "Waking…" : "Wake lead"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -55,6 +98,7 @@ function AgentCard({ agent }: { agent: HermesOrgAgentSummary }) {
 export function HermesOrg() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Hermes Org" }]);
@@ -65,6 +109,17 @@ export function HermesOrg() {
     queryFn: () => agentsApi.hermesOrg(selectedCompanyId!),
     enabled: !!selectedCompanyId,
     refetchInterval: 15_000,
+  });
+
+  const wakeLead = useMutation({
+    mutationFn: (agent: HermesOrgAgentSummary) => agentsApi.wakeup(agent.id, {
+      source: "on_demand",
+      triggerDetail: "manual",
+      reason: `Manual wake from Hermes Org queue ${agent.missionControlQueue}`,
+    }, selectedCompanyId!),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.agents.hermesOrg(selectedCompanyId!) });
+    },
   });
 
   if (!selectedCompanyId) {
@@ -101,7 +156,15 @@ export function HermesOrg() {
           <p className="text-sm text-muted-foreground">Command pod verified for Research → SEO → Content → Visual → QA → Security → COO workflows.</p>
         </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {data.firstActivationPod.map((agent) => <AgentCard key={agent.id} agent={agent} />)}
+          {data.firstActivationPod.map((agent) => (
+            <AgentCard
+              key={agent.id}
+              agent={agent}
+              companyId={selectedCompanyId}
+              onWake={(target) => wakeLead.mutate(target)}
+              waking={wakeLead.isPending && wakeLead.variables?.id === agent.id}
+            />
+          ))}
         </div>
       </section>
 
@@ -114,7 +177,15 @@ export function HermesOrg() {
                 {division.name} · {division.agentCount} agents · {division.activeCount} active · {division.runningRunCount} running
               </summary>
               <div className="grid gap-3 border-t border-border p-3 md:grid-cols-2 xl:grid-cols-3">
-                {division.agents.map((agent) => <AgentCard key={agent.id} agent={agent} />)}
+                {division.agents.map((agent) => (
+                  <AgentCard
+                    key={agent.id}
+                    agent={agent}
+                    companyId={selectedCompanyId}
+                    onWake={(target) => wakeLead.mutate(target)}
+                    waking={wakeLead.isPending && wakeLead.variables?.id === agent.id}
+                  />
+                ))}
               </div>
             </details>
           ))}

@@ -21,6 +21,11 @@ describe("Hermes org visibility summary", () => {
             skills: ["kanban-orchestrator"],
             review: ["Audit Lead"],
             bridgeUrl: "http://hermes-paperclip-org-bridge:8650/invoke",
+            missionControlQueue: "mc/executive-coordination",
+            ownershipScope: "COO owns global Mission Control hygiene.",
+            responsibilities: ["Route work", "Resolve blockers"],
+            activationPod: "first-activation",
+            escalation: ["AI worker", "AI reviewer", "COO", "Jeremy"],
           },
         },
         {
@@ -66,7 +71,15 @@ describe("Hermes org visibility summary", () => {
         agentCount: 1,
         activeCount: 1,
         runningRunCount: 0,
-        agents: [expect.objectContaining({ profile: "leadcoo", review: ["Audit Lead"] })],
+        agents: [expect.objectContaining({
+          profile: "leadcoo",
+          review: ["Audit Lead"],
+          missionControlQueue: "mc/executive-coordination",
+          ownershipScope: "COO owns global Mission Control hygiene.",
+          responsibilities: ["Route work", "Resolve blockers"],
+          activationPod: "first-activation",
+          escalation: ["AI worker", "AI reviewer", "COO", "Jeremy"],
+        })],
       },
       {
         name: "Research / Intelligence",
@@ -76,6 +89,6 @@ describe("Hermes org visibility summary", () => {
         agents: [expect.objectContaining({ profile: "leadresearch", recentRuns: [expect.objectContaining({ id: "run-1" })] })],
       },
     ]);
-    expect(summary.firstActivationPod.map((agent) => agent.profile)).toEqual(["leadcoo", "leadresearch"]);
+    expect(summary.firstActivationPod.map((agent: { profile: string }) => agent.profile)).toEqual(["leadcoo", "leadresearch"]);
   });
 });
