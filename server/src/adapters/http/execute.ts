@@ -26,15 +26,41 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       ...(timer ? { signal: controller.signal } : {}),
     });
 
+    const responseText = await res.text();
+    const boundedResponseText = responseText.slice(0, 60_000);
+    let responseJson: unknown = null;
+    try {
+      responseJson = responseText ? JSON.parse(responseText) : null;
+    } catch {
+      responseJson = null;
+    }
+
     if (!res.ok) {
-      throw new Error(`HTTP invoke failed with status ${res.status}`);
+      return {
+        exitCode: res.status,
+        signal: null,
+        timedOut: false,
+        errorMessage: `HTTP invoke failed with status ${res.status}`,
+        errorCode: "http_status",
+        resultJson: {
+          httpStatus: res.status,
+          responseText: boundedResponseText,
+          responseJson,
+        },
+        summary: `HTTP ${method} ${url} failed with status ${res.status}`,
+      };
     }
 
     return {
       exitCode: 0,
       signal: null,
       timedOut: false,
-      summary: `HTTP ${method} ${url}`,
+      resultJson: {
+        httpStatus: res.status,
+        responseText: boundedResponseText,
+        responseJson,
+      },
+      summary: `HTTP ${method} ${url} completed with status ${res.status}`,
     };
   } catch (err) {
     if (timer && err instanceof Error && err.name === "AbortError") {
